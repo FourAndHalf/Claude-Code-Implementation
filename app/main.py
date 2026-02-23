@@ -33,10 +33,12 @@ async def main():
 
     client = OpenAI(api_key=API_KEY, base_url=BASE_URL)
 
+    messages = [{"role": "user", "content": args.p}]
+
     while True:
         response = client.chat.completions.create(
             model="anthropic/claude-haiku-4.5",
-            messages=[{"role": "user", "content": args.p}],
+            messages=messages,
             tools=tools_for_llm()
         )
 
