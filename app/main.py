@@ -1,54 +1,71 @@
 import argparse
 import os
-import sys
+import json
+import asyncio
 
 from openai import OpenAI
 
+import app.tools
+from app.helpers.discovery import load_tools
+from app.helpers.executor import ToolExecutor
+from app.helpers.registry import TOOL_REGISTRY
+
+
 API_KEY = os.getenv("OPENROUTER_API_KEY")
-BASE_URL = os.getenv("OPENROUTER_BASE_URL", default="https://openrouter.ai/api/v1")
+BASE_URL = os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
 
 
-def main():
+def tools_for_llm():
+    return [
+        {k: v for k, v in t.items() if k not in ("handler", "tags")}
+        for t in TOOL_REGISTRY.values()
+    ]
+
+
+async def main():
     p = argparse.ArgumentParser()
     p.add_argument("-p", required=True)
     args = p.parse_args()
 
-    if not API_KEY:
-        raise RuntimeError("OPENROUTER_API_KEY is not set")
+    load_tools(app.tools)
+
+    tools = tools_for_llm()
+    executor = ToolExecutor()
 
     client = OpenAI(api_key=API_KEY, base_url=BASE_URL)
 
-    chat = client.chat.completions.create(
-        model="anthropic/claude-haiku-4.5",
-        messages=[{"role": "user", "content": args.p}],
-        tools=[{
-            "type": "function",
-            "function": {
-                "name": "read_file",
-                "description": "Reads a file from a given file path",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "file_path": {
-                            "type": "string",
-                            "description": "The path for the file to read"
-                        }
-                    }
-                },
-                "required": ["file_path"]
-            }
-        }]
-    )
+    messages = [{"role": "user", "content": args.p}]
 
-    if not chat.choices or len(chat.choices) == 0:
-        raise RuntimeError("no choices in response")
+    while True:
+        response = client.chat.completions.create(
+            model="anthropic/claude-haiku-4.5",
+            messages=messages,
+            tools=tools
+        )
 
-    # You can use print statements as follows for debugging, they'll be visible when running tests.
-    print("Logs from your program will appear here!", file=sys.stderr)
+        msg = response.choices[0].message
 
-    # TODO: Uncomment the following line to pass the first stage
-    print(chat.choices[0].message.content)
+        if not msg.tool_calls:
+            print(msg.content)
+            break
+
+        for call in msg.tool_calls:
+            name = call.function.name
+            args_dict = json.loads(call.function.arguments or "{}")
+
+            result = await executor.execute(name, args_dict)
+
+            messages.append({
+                "role": "assistant",
+                "tool_calls": [call.model_dump()]
+            })
+
+            messages.append({
+                "role": "tool",
+                "tool_name": name,
+                "content": str(result)
+            })
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
