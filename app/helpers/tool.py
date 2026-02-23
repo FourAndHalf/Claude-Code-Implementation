@@ -32,7 +32,7 @@ def tool(fn=None, *, name=None, description=None, tags=None):
             if param.default is inspect._empty:
                 required.append(param.name)
 
-        tool_name = name or f"{f.__module__}.{f.__name__}"
+        tool_name = name or f.__name__
 
         TOOL_REGISTRY[tool_name] = {
             "type": "function",
