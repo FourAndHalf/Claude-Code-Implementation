@@ -29,21 +29,20 @@ async def main():
 
     load_tools(app.tools)
 
-    tools = tools_for_llm()
     executor = ToolExecutor()
 
     client = OpenAI(api_key=API_KEY, base_url=BASE_URL)
 
-    messages = [{"role": "user", "content": args.p}]
-
     while True:
         response = client.chat.completions.create(
             model="anthropic/claude-haiku-4.5",
-            messages=messages,
-            tools=tools
+            messages=[{"role": "user", "content": args.p}],
+            tools=tools_for_llm()
         )
 
         msg = response.choices[0].message
+
+        print(msg)
 
         if not msg.tool_calls:
             print(msg.content)
