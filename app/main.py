@@ -58,12 +58,19 @@ async def main():
 
             messages.append({
                 "role": "assistant",
-                "tool_calls": [call.model_dump()]
+                "tool_calls": {
+                    "id": call.id,
+                    "type": "function",
+                    "function": {
+                        "name": name,
+                        "arguments": call.function.arguments
+                    }
+                }
             })
 
             messages.append({
                 "role": "tool",
-                "tool_name": name,
+                "tool_call_id": call.id,
                 "content": str(result)
             })
 
