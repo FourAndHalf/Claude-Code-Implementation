@@ -5,7 +5,7 @@ class ToolExecutor:
 
     async def execute(self, name: str, args: dict):
         tool = TOOL_REGISTRY[name]
-        handler = tool["handler"]
+        handler = tool.handler
 
         if inspect.iscoroutinefunction(handler):
             return await handler(**args)
