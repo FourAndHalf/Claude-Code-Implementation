@@ -5,6 +5,7 @@ import asyncio
 from typing import cast
 
 from openai import OpenAI
+from openai._utils import assert_signatures_in_sync
 from openai.types.chat import ChatCompletionMessageParam, ChatCompletionMessageToolCall, ChatCompletionToolParam
 
 import app.tools
@@ -44,37 +45,24 @@ async def main():
 
         msg = response.choices[0].message
 
-        print(msg)
-
         if not msg.tool_calls:
             print(msg.content)
             break
 
-        for call in msg.tool_calls or []:
-            call = cast(ChatCompletionMessageToolCall, call)
+        messages.append(msg)
+
+        for call in msg.tool_calls:
+            if call.type != "function":
+                continue
+
             name = call.function.name
             args_dict = json.loads(call.function.arguments or "{}")
-
             result = await executor.execute(name, args_dict)
-
-            messages.append({
-                "role": "assistant",
-                "tool_calls": [
-                    {
-                        "id": call.id,
-                        "type": "function",
-                        "function": {
-                            "name": name,
-                            "arguments": call.function.arguments
-                        }
-                    }
-                ]
-            })
 
             messages.append({
                 "role": "tool",
                 "tool_call_id": call.id,
-                "content": str(result)
+                "content": str(result),
             })
 
 if __name__ == "__main__":

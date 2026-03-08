@@ -1,5 +1,5 @@
 import inspect
-from app.helpers.registry import TOOL_REGISTRY
+from app.helpers.registry import TOOL_REGISTRY, RegisteredTool
 
 def _python_type_to_json(t):
     mapping={
@@ -34,20 +34,22 @@ def tool(fn=None, *, name=None, description=None, tags=None):
 
         tool_name = name or f.__name__
 
-        TOOL_REGISTRY[tool_name] = {
-            "type": "function",
-            "function": {
-                "name": tool_name,
-                "description": description or (f.__doc__ or ""),
-                "parameters": {
-                    "type": "object",
-                    "properties": properties,
-                    "required": required
+        TOOL_REGISTRY[tool_name] = RegisteredTool(
+            schema={
+                "type": "function",
+                "function": {
+                    "name": tool_name,
+                    "description": description or (f.__doc__ or ""),
+                    "parameters": {
+                        "type": "object",
+                        "properties": properties,
+                        "required": required
+                    }
                 }
             },
-            "handler": f,
-            "tags": tags or []
-        }
+            handler=f,
+            tags=tags or []
+        )
 
         return f
 
